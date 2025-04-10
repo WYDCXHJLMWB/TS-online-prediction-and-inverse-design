@@ -19,7 +19,7 @@ import joblib
 from scipy.optimize import minimize
 
 # 页面设置
-st.set_page_config(page_title="性能预测与逆向设计", layout="wide")
+st.set_page_config(page_title="聚丙烯性能预测与逆向设计", layout="wide")
 st.title("聚丙烯拉伸强度岭回归模型：性能预测 与 逆向设计")
 
 # 选择功能
