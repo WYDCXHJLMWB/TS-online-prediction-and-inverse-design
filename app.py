@@ -39,19 +39,21 @@ if page == "性能预测":
     
     user_input = {}
     for name in feature_names:
-        user_input[name] = st.number_input(f"{name}", value=0.0, step=0.1)
+        # 显示配方特征及其单位 wt%
+        user_input[name] = st.number_input(f"{name} (wt%)", value=0.0, step=0.1)
     
     if st.button("开始预测"):
         input_array = np.array([list(user_input.values())])
         input_scaled = scaler.transform(input_array)
         prediction = model.predict(input_scaled)[0]
-        st.success(f"预测结果：TS = **{prediction:.3f}**")
+        # 预测结果显示 MPa 单位
+        st.success(f"预测结果：TS = **{prediction:.3f} MPa**")
 
 # 逆向设计页面
 elif page == "逆向设计":
     st.subheader("🎯 逆向设计：根据目标拉伸强度反推配方")
 
-    target_ts = st.number_input("目标 TS 值", value=50.0, step=0.1)  # 修改为目标 TS
+    target_ts = st.number_input("目标 TS 值 (MPa)", value=50.0, step=0.1)  # 修改为目标 TS 单位为 MPa
 
     if st.button("开始逆向设计"):
         with st.spinner("正在反推出最优配方，请稍候..."):
@@ -91,9 +93,11 @@ elif page == "逆向设计":
                 # 反推的最佳配方
                 pred_ts = model.predict(scaler.transform([best_x]))[0]  # 使用最佳配方预测 TS
 
-                # 显示结果
-                st.success(f"✅ 找到配方！预测 TS = {pred_ts:.3f}")
+                # 显示结果，预测 TS 后加单位 MPa
+                st.success(f"✅ 找到配方！预测 TS = {pred_ts:.3f} MPa")
                 df_result = pd.DataFrame([best_x], columns=feature_names)
-                st.dataframe(df_result.style.format("{:.2f}"))
+                # 为每个配方成分添加单位 wt%
+                df_result = df_result.applymap(lambda x: f"{x:.2f} wt%")
+                st.dataframe(df_result)
             else:
                 st.error("❌ 优化失败，请检查模型或目标值是否合理")
