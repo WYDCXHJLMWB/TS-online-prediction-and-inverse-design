@@ -38,11 +38,12 @@ if page == "性能预测":
             user_input[name] = val
             total += val
 
-        # 仅当输入的总和不为0时才检查是否为100
-        inputs_valid = True
-        if unit_type != "质量 (g)" and total != 0 and abs(total - 100) > 1e-3:
+        # 判断总和是否满足为100
+        if unit_type != "质量 (g)" and abs(total - 100) > 1e-3:
             st.warning("⚠️ 当前输入为分数单位，总和必须为 100。请检查输入是否正确。")
             inputs_valid = False
+        else:
+            inputs_valid = True
 
         submitted = st.form_submit_button("📊 开始预测", disabled=not inputs_valid)
 
@@ -82,22 +83,4 @@ elif page == "逆向设计":
                 return abs(pred - target_ts)
 
             # 约束：配方总和为 100
-            cons = {'type': 'eq', 'fun': lambda x: np.sum(x) - 1}
-
-            result = minimize(objective, x0, bounds=bounds, constraints=cons, method='SLSQP')
-
-            if result.success:
-                best_x = result.x / np.sum(result.x) * 100
-                pred_ts = model.predict(scaler.transform([best_x]))[0]
-
-                st.success("🎉 成功反推配方！")
-                st.metric("预测 TS", f"{pred_ts:.2f} MPa")
-
-                unit_suffix = "wt%" if "质量" in unit_type else "vol%"
-                df_result = pd.DataFrame([best_x], columns=feature_names)
-                df_result.columns = [f"{col} ({unit_suffix})" for col in df_result.columns]
-
-                st.markdown("### 📋 最优配方参数")
-                st.dataframe(df_result.round(2))
-            else:
-                st.error("❌ 优化失败，请尝试更改目标 TS 或检查模型")
+            cons = {'type': 'eq', 'fun': lambda x: np.sum(x
