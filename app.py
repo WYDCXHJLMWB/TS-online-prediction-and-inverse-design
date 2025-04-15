@@ -38,26 +38,23 @@ if page == "性能预测":
             user_input[name] = val
             total += val
 
-        # 判断总和是否满足为100
-        if unit_type != "质量 (g)" and abs(total - 100) > 1e-3:
-            st.warning("⚠️ 当前输入为分数单位，总和必须为 100。请检查输入是否正确。")
-            inputs_valid = False
-        else:
-            inputs_valid = True
-
-        submitted = st.form_submit_button("📊 开始预测", disabled=not inputs_valid)
+        submitted = st.form_submit_button("📊 开始预测")
 
     if submitted:
-        # 若是分数单位，则再归一化一遍
-        if unit_type != "质量 (g)" and total > 0:
-            user_input = {k: v / total * 100 for k, v in user_input.items()}
+        # 判断总和是否满足为100
+        if unit_type != "质量 (g)" and abs(total - 100) > 1e-3:
+            st.warning("⚠️ 配方加和不为100，无法预测。请确保总和为100后再进行预测。")
+        else:
+            # 若是分数单位，则再归一化一遍
+            if unit_type != "质量 (g)" and total > 0:
+                user_input = {k: v / total * 100 for k, v in user_input.items()}
 
-        input_array = np.array([list(user_input.values())])
-        input_scaled = scaler.transform(input_array)
-        prediction = model.predict(input_scaled)[0]
+            input_array = np.array([list(user_input.values())])
+            input_scaled = scaler.transform(input_array)
+            prediction = model.predict(input_scaled)[0]
 
-        st.markdown("### 🎯 预测结果")
-        st.metric(label="拉伸强度 (TS)", value=f"{prediction:.2f} MPa")
+            st.markdown("### 🎯 预测结果")
+            st.metric(label="拉伸强度 (TS)", value=f"{prediction:.2f} MPa")
 
 elif page == "逆向设计":
     st.subheader("🎯 逆向设计：拉伸强度 (TS) → 配方")
