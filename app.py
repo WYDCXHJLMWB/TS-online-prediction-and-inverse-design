@@ -83,4 +83,22 @@ elif page == "逆向设计":
                 return abs(pred - target_ts)
 
             # 约束：配方总和为 100
-            cons = {'type': 'eq', 'fun': lambda x: np.sum(x
+            cons = {'type': 'eq', 'fun': lambda x: np.sum(x) - 1}
+
+            result = minimize(objective, x0, bounds=bounds, constraints=cons, method='SLSQP')
+
+            if result.success:
+                best_x = result.x / np.sum(result.x) * 100
+                pred_ts = model.predict(scaler.transform([best_x]))[0]
+
+                st.success("🎉 成功反推配方！")
+                st.metric("预测 TS", f"{pred_ts:.2f} MPa")
+
+                unit_suffix = "wt%" if "质量" in unit_type else "vol%"
+                df_result = pd.DataFrame([best_x], columns=feature_names)
+                df_result.columns = [f"{col} ({unit_suffix})" for col in df_result.columns]
+
+                st.markdown("### 📋 最优配方参数")
+                st.dataframe(df_result.round(2))
+            else:
+                st.error("❌ 优化失败，请尝试更改目标 TS 或检查模型")
