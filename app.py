@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Apr 10 19:18:30 2025
-
-@author: ma'wei'bin
-"""
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -33,14 +26,22 @@ feature_names = df.columns.tolist()
 if "TS" in feature_names:
     feature_names.remove("TS")
 
+# 单位选择（用户选择）
+unit_option = st.sidebar.selectbox("选择配方的单位", ["质量分数 (wt%)", "体积分数 (vol%)", "质量 (g)"])
+
 # 性能预测页面
 if page == "性能预测":
     st.subheader("🔬 根据配方预测拉伸强度（TS）")
     
     user_input = {}
     for name in feature_names:
-        # 显示配方特征及其单位 wt%
-        user_input[name] = st.number_input(f"{name} (wt%)", value=0.0, step=0.1)
+        # 根据用户选择单位显示输入框
+        if unit_option == "质量分数 (wt%)":
+            user_input[name] = st.number_input(f"{name} (wt%)", value=0.0, step=0.1)
+        elif unit_option == "体积分数 (vol%)":
+            user_input[name] = st.number_input(f"{name} (vol%)", value=0.0, step=0.1)
+        else:
+            user_input[name] = st.number_input(f"{name} (g)", value=0.0, step=0.1)
     
     if st.button("开始预测"):
         input_array = np.array([list(user_input.values())])
@@ -90,14 +91,4 @@ elif page == "逆向设计":
 
             if result.success:
                 best_x = result.x
-                # 反推的最佳配方
-                pred_ts = model.predict(scaler.transform([best_x]))[0]  # 使用最佳配方预测 TS
-
-                # 显示结果，预测 TS 后加单位 MPa
-                st.success(f"✅ 找到配方！预测 TS = {pred_ts:.3f} MPa")
-                df_result = pd.DataFrame([best_x], columns=feature_names)
-                # 为每个配方成分添加单位 wt%
-                df_result = df_result.applymap(lambda x: f"{x:.2f} wt%")
-                st.dataframe(df_result)
-            else:
-                st.error("❌ 优化失败，请检查模型或目标值是否合理")
+                # 反推的最佳配
