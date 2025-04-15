@@ -38,9 +38,9 @@ if page == "性能预测":
             user_input[name] = val
             total += val
 
-        # 判断是否满足加和=100要求
+        # 仅当输入的总和不为0时才检查是否为100
         inputs_valid = True
-        if unit_type != "质量 (g)" and abs(total - 100) > 1e-3:
+        if unit_type != "质量 (g)" and total != 0 and abs(total - 100) > 1e-3:
             st.warning("⚠️ 当前输入为分数单位，总和必须为 100。请检查输入是否正确。")
             inputs_valid = False
 
