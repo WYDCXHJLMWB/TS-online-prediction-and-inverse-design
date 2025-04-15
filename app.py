@@ -4,91 +4,100 @@ import numpy as np
 import joblib
 from scipy.optimize import minimize
 
-# 页面设置：确保是第一个Streamlit命令
-st.set_page_config(page_title="聚丙烯性能预测与逆向设计", layout="wide")
+st.set_page_config(page_title="聚丙烯拉伸强度模型", layout="wide")
+st.title("🧪 聚丙烯拉伸强度模型：性能预测 与 逆向设计")
 
-# 页面标题
-st.title("聚丙烯拉伸强度岭回归模型：性能预测 与 逆向设计")
-
-# 选择功能
 page = st.sidebar.selectbox("🔧 选择功能", ["性能预测", "逆向设计"])
 
-# 加载模型和 scaler
-data = joblib.load("model_and_scaler_ts1.pkl")  # 修改为加载 TS 模型
+# 加载模型与缩放器
+data = joblib.load("model_and_scaler_ts1.pkl")
 model = data["model"]
 scaler = data["scaler"]
 
-# 加载特征名（已删除 TS 列）
 df = pd.read_excel("trainrg3.xlsx")
 feature_names = df.columns.tolist()
-
-# 保险处理，剔除 TS
 if "TS" in feature_names:
     feature_names.remove("TS")
 
-# 单位选择（用户选择）
-unit_option = st.sidebar.selectbox("选择配方的单位", ["质量分数 (wt%)", "体积分数 (vol%)", "质量 (g)"])
+unit_type = st.radio("📏 请选择配方输入单位", ["质量 (g)", "质量分数 (wt%)", "体积分数 (vol%)"], horizontal=True)
 
-# 性能预测页面
 if page == "性能预测":
-    st.subheader("🔬 根据配方预测拉伸强度（TS）")
-    
-    user_input = {}
-    for name in feature_names:
-        # 根据用户选择单位显示输入框
-        if unit_option == "质量分数 (wt%)":
-            user_input[name] = st.number_input(f"{name} (wt%)", value=0.0, step=0.1)
-        elif unit_option == "体积分数 (vol%)":
-            user_input[name] = st.number_input(f"{name} (vol%)", value=0.0, step=0.1)
-        else:
-            user_input[name] = st.number_input(f"{name} (g)", value=0.0, step=0.1)
-    
-    if st.button("开始预测"):
+    st.subheader("🔬 正向预测：配方 → 拉伸强度 (TS)")
+
+    with st.form("input_form"):
+        user_input = {}
+        total = 0
+        cols = st.columns(3)
+        for i, name in enumerate(feature_names):
+            unit_label = {
+                "质量 (g)": "g",
+                "质量分数 (wt%)": "wt%",
+                "体积分数 (vol%)": "vol%"
+            }[unit_type]
+            val = cols[i % 3].number_input(f"{name} ({unit_label})", value=0.0, step=0.1 if "质量" in unit_type else 0.01)
+            user_input[name] = val
+            total += val
+
+        # 判断是否满足加和=100要求
+        inputs_valid = True
+        if unit_type != "质量 (g)" and abs(total - 100) > 1e-3:
+            st.warning("⚠️ 当前输入为分数单位，总和必须为 100。请检查输入是否正确。")
+            inputs_valid = False
+
+        submitted = st.form_submit_button("📊 开始预测", disabled=not inputs_valid)
+
+    if submitted:
+        # 若是分数单位，则再归一化一遍
+        if unit_type != "质量 (g)" and total > 0:
+            user_input = {k: v / total * 100 for k, v in user_input.items()}
+
         input_array = np.array([list(user_input.values())])
         input_scaled = scaler.transform(input_array)
         prediction = model.predict(input_scaled)[0]
-        # 预测结果显示 MPa 单位
-        st.success(f"预测结果：TS = **{prediction:.3f} MPa**")
 
-# 逆向设计页面
+        st.markdown("### 🎯 预测结果")
+        st.metric(label="拉伸强度 (TS)", value=f"{prediction:.2f} MPa")
+
 elif page == "逆向设计":
-    st.subheader("🎯 逆向设计：根据目标拉伸强度反推配方")
+    st.subheader("🎯 逆向设计：拉伸强度 (TS) → 配方")
 
-    target_ts = st.number_input("目标 TS 值 (MPa)", value=50.0, step=0.1)  # 修改为目标 TS 单位为 MPa
+    target_ts = st.number_input("🎯 请输入目标 TS 值 (MPa)", value=50.0, step=0.1)
 
-    if st.button("开始逆向设计"):
+    if st.button("🔄 开始逆向设计"):
         with st.spinner("正在反推出最优配方，请稍候..."):
 
             # 初始猜测：随机生成各个特征的初始值，确保 PP 的初始值合理
-            x0 = np.random.uniform(0, 100, len(feature_names))  # 随机初始化配方比例
-            pp_index = feature_names.index("PP")  # 找到 PP 在特征中的索引
-            x0[pp_index] = np.random.uniform(70, 100)  # 设置 PP 初始值为 70 到 100 之间的随机值
+            x0 = np.random.rand(len(feature_names))
+            pp_index = feature_names.index("PP")
+            x0[pp_index] = 0.7  # 初始PP较高
 
-            # 设置边界，PP 的范围是 70 到 100 之间，其他特征为 0 到 100 之间
-            bounds = [(0, 100)] * len(feature_names)
-            bounds[pp_index] = (50, 100)  # PP 的比例范围是 50 到 100
+            bounds = [(0, 1)] * len(feature_names)
+            bounds[pp_index] = (0.5, 1.0)
 
             # 目标函数：最小化预测 TS 与目标 TS 之间的差异
             def objective(x):
-                # 将配方比例归一化，使其总和为 100
-                x_sum = np.sum(x)
-                if x_sum != 0:
-                    x = x / x_sum * 100  # 归一化
-
-                x_scaled = scaler.transform([x])  # 对配方进行标准化
-                pred = model.predict(x_scaled)[0]  # 使用模型预测 TS
-                return abs(pred - target_ts)  # 目标是最小化 TS 与目标值的差距
+                x_norm = x / np.sum(x) * 100
+                x_scaled = scaler.transform([x_norm])
+                pred = model.predict(x_scaled)[0]
+                return abs(pred - target_ts)
 
             # 约束：配方总和为 100
-            def constraint(x):
-                return np.sum(x) - 100  # 配方比例和应该等于 100
+            cons = {'type': 'eq', 'fun': lambda x: np.sum(x) - 1}
 
-            # 将约束加入到优化过程中
-            cons = ({'type': 'eq', 'fun': constraint})  # 使用eq约束确保总和为100
-
-            # 执行优化
             result = minimize(objective, x0, bounds=bounds, constraints=cons, method='SLSQP')
 
             if result.success:
-                best_x = result.x
-                # 反推的最佳配
+                best_x = result.x / np.sum(result.x) * 100
+                pred_ts = model.predict(scaler.transform([best_x]))[0]
+
+                st.success("🎉 成功反推配方！")
+                st.metric("预测 TS", f"{pred_ts:.2f} MPa")
+
+                unit_suffix = "wt%" if "质量" in unit_type else "vol%"
+                df_result = pd.DataFrame([best_x], columns=feature_names)
+                df_result.columns = [f"{col} ({unit_suffix})" for col in df_result.columns]
+
+                st.markdown("### 📋 最优配方参数")
+                st.dataframe(df_result.round(2))
+            else:
+                st.error("❌ 优化失败，请尝试更改目标 TS 或检查模型")
