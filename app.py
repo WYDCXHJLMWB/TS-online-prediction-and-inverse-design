@@ -66,8 +66,8 @@ if page == "性能预测":
         submitted = st.form_submit_button("📊 开始预测")
 
     if submitted:
-        # 判断是否只输入PP
-        if "PP" in user_input and sum(user_input.values()) == user_input["PP"]:
+        # 检查是否只输入了PP且总和为100，且PP为100
+        if "PP" in user_input and sum(user_input.values()) == user_input["PP"] and user_input["PP"] == 100:
             # 如果只输入了PP（且其他值为0），直接返回35
             prediction = 35.0
         else:
