@@ -47,4 +47,32 @@ if "TS" in feature_names:
 unit_type = st.radio("📏 请选择配方输入单位", ["质量 (g)", "质量分数 (wt%)", "体积分数 (vol%)"], horizontal=True)
 
 if page == "性能预测":
-    st.subheader
+    st.subheader("🔬 正向预测：配方 → 拉伸强度 (TS)")  # 添加显示的文本
+
+    with st.form("input_form"):
+        user_input = {}
+        total = 0
+        cols = st.columns(3)
+        for i, name in enumerate(feature_names):
+            unit_label = {
+                "质量 (g)": "g",
+                "质量分数 (wt%)": "wt%",
+                "体积分数 (vol%)": "vol%"
+            }[unit_type]
+            val = cols[i % 3].number_input(f"{name} ({unit_label})", value=0.0, step=0.1 if "质量" in unit_type else 0.01)
+            user_input[name] = val
+            total += val
+
+        submitted = st.form_submit_button("📊 开始预测")
+
+    if submitted:
+        # 判断总和是否满足为100
+        if unit_type != "质量 (g)" and abs(total - 100) > 1e-3:
+            st.warning("⚠️ 配方加和不为100，无法预测。请确保总和为100后再进行预测。")
+        else:
+            # 若是分数单位，则再归一化一遍
+            if unit_type != "质量 (g)" and total > 0:
+                user_input = {k: v / total * 100 for k, v in user_input.items()}
+
+            input_array = np.array([list(user_input.values())])
+            input_scaled = scaler_
