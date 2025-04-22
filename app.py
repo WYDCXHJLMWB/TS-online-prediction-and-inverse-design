@@ -74,9 +74,13 @@ if page == "性能预测":
             if unit_type != "质量 (g)" and total > 0:
                 user_input = {k: v / total * 100 for k, v in user_input.items()}
 
-            input_array = np.array([list(user_input.values())])
-            input_scaled = scaler.transform(input_array)
-            prediction = model.predict(input_scaled)[0]
+            # 如果只输入了 PP，则直接返回 35 MPa
+            if len(user_input) == 1 and "PP" in user_input:
+                prediction = 35.0
+            else:
+                input_array = np.array([list(user_input.values())])
+                input_scaled = scaler.transform(input_array)
+                prediction = model.predict(input_scaled)[0]
 
             st.markdown("### 🎯 预测结果")
             st.metric(label="拉伸强度 (TS)", value=f"{prediction:.2f} MPa")
